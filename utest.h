@@ -33,7 +33,21 @@
 #ifndef SHEREDOM_UTEST_H_INCLUDED
 #define SHEREDOM_UTEST_H_INCLUDED
 
-#ifdef _MSC_VER
+// clang-cl.exe has them both defined
+// _MSC_VER and __clang__
+// ditto ...
+#ifdef _WIN32 
+#define UTEST_IS_WIN 
+#endif
+
+// not in use
+#ifdef UTEST_IS_WIN 
+#ifdef __clang__
+#define UTEST_IS_WIN_CLANG
+#endif
+#endif
+
+#ifdef UTEST_IS_WIN
 /*
    Disable warning about not inlining 'inline' functions.
    TODO: We'll fix this later by not using fprintf within our macros, and
@@ -49,7 +63,7 @@
 #pragma warning(push, 1)
 #endif
 
-#if defined(_MSC_VER)
+#if defined(UTEST_IS_WIN)
 typedef __int64 utest_int64_t;
 typedef unsigned __int64 utest_uint64_t;
 #else
@@ -63,11 +77,11 @@ typedef uint64_t utest_uint64_t;
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(_MSC_VER)
+#if defined(UTEST_IS_WIN)
 #pragma warning(pop)
 #endif
 
-#if defined(_MSC_VER)
+#if defined(UTEST_IS_WIN)
 #if defined(_M_IX86)
 #define _X86_
 #endif
@@ -110,7 +124,7 @@ typedef uint64_t utest_uint64_t;
 #include <mach/mach_time.h>
 #endif
 
-#if defined(_MSC_VER)
+#if defined(UTEST_IS_WIN)
 #define UTEST_PRId64 "I64d"
 #define UTEST_PRIu64 "I64u"
 #define UTEST_INLINE __forceinline
@@ -134,7 +148,16 @@ typedef uint64_t utest_uint64_t;
   UTEST_C_FUNC __declspec(allocate(".CRT$XCU")) void(__cdecl * f##_)(void) =   \
       f;                                                                       \
   static void __cdecl f(void)
-#else
+
+// clang on win aka clang-cl.exe 
+#ifdef __clang__
+#undef UTEST_INITIALIZER
+#define UTEST_INITIALIZER(f)                                                  \
+  static void f(void) __attribute__((constructor));                            \
+  static void f(void)
+#endif // __clang__
+
+#else // ! UTEST_IS_WIN
 #if defined(__linux__)
 #if defined(__clang__)
 #if __has_warning("-Wreserved-id-macro")
@@ -175,7 +198,7 @@ typedef uint64_t utest_uint64_t;
 #define UTEST_NULL 0
 #endif
 
-#ifdef _MSC_VER
+#ifdef UTEST_IS_WIN
 /*
     io.h contains definitions for some structures with natural padding. This is
     uninteresting, but for some reason MSVC's behaviour is to warn about
@@ -192,7 +215,7 @@ typedef uint64_t utest_uint64_t;
 #endif
 
 static UTEST_INLINE utest_int64_t utest_ns(void) {
-#ifdef _MSC_VER
+#ifdef UTEST_IS_WIN
   LARGE_INTEGER counter;
   LARGE_INTEGER frequency;
   QueryPerformanceCounter(&counter);
@@ -236,13 +259,13 @@ struct utest_state_s {
 /* extern to the global state utest needs to execute */
 UTEST_EXTERN struct utest_state_s utest_state;
 
-#if defined(_MSC_VER)
+#if defined(UTEST_IS_WIN)
 #define UTEST_WEAK __forceinline
 #else
 #define UTEST_WEAK __attribute__((weak))
 #endif
 
-#if defined(_MSC_VER)
+#if defined(UTEST_IS_WIN)
 #define UTEST_UNUSED
 #else
 #define UTEST_UNUSED __attribute__((unused))
@@ -262,7 +285,7 @@ UTEST_EXTERN struct utest_state_s utest_state;
 #pragma clang diagnostic pop
 #endif
 
-#ifdef _MSC_VER
+#ifdef UTEST_IS_WIN
 #define UTEST_SNPRINTF(BUFFER, N, ...) _snprintf_s(BUFFER, N, N, __VA_ARGS__)
 #else
 #ifdef __clang__
@@ -816,7 +839,7 @@ static UTEST_INLINE int utest_strncmp(const char *a, const char *b, size_t n) {
 }
 
 static UTEST_INLINE FILE *utest_fopen(const char *filename, const char *mode) {
-#ifdef _MSC_VER
+#ifdef UTEST_IS_WIN
   FILE *file;
   if (0 == fopen_s(&file, filename, mode)) {
     return file;
